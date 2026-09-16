@@ -25,13 +25,19 @@ func NewServer(registry *Registry) *Server {
 }
 
 type process struct {
-	conn    net.Conn
-	writeMu sync.Mutex
+	conn     net.Conn
+	writeMu  sync.Mutex
+	mu       sync.Mutex
+	requests map[uint64]context.CancelFunc
 }
 
 func (s *Server) handler(ctx context.Context, pro *process) error {
-
-	defer pro.conn.Close()
+	connCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-connCtx.Done()
+		pro.conn.Close()
+	}()
 	for {
 		header, payload, err := ReadFrame(pro.conn)
 		if err != nil {
@@ -40,21 +46,32 @@ func (s *Server) handler(ctx context.Context, pro *process) error {
 		switch header.FrameType {
 		// unary
 		case FrameUnaryRequest:
-			go func() {
-				s.handleUnary(ctx, pro, header.RequestID, payload)
-			}()
+			go func(header Header, payload []byte) {
+				s.handleUnary(connCtx, pro, header.RequestID, payload)
+			}(header, payload)
 		//stream
 		case FrameStreamOpen:
-			go func() {
-				s.handleStreamServer(ctx, pro, header.RequestID, payload)
-			}()
+			go func(header Header, payload []byte) {
+				s.handleStreamServer(connCtx, pro, header.RequestID, payload)
+			}(header, payload)
+		case FrameCancel:
+			rpcCancel, ok := pro.getCancel(header.RequestID)
+			if ok {
+				rpcCancel()
+			}
 		default:
+			go func(header Header) {
+				message := fmt.Sprintf("invalid frame type: %d", header.FrameType)
+				s.sendErr(pro, CodeBadRequest, message, header.RequestID, FrameUnaryResponse)
+			}(header)
 		}
 	}
 }
 
 func (s *Server) handleUnary(ctx context.Context, pro *process, requestID uint64, payload []byte) {
 	processCtx, cancel := context.WithCancel(ctx)
+	pro.addCancel(requestID, cancel)
+	defer pro.delCancel(requestID)
 	defer cancel()
 	req, err := DecodeRequest(payload)
 	if err != nil {
@@ -101,6 +118,8 @@ func (s *Server) handleUnary(ctx context.Context, pro *process, requestID uint64
 }
 func (s *Server) handleStreamServer(ctx context.Context, pro *process, requestID uint64, payload []byte) {
 	processCtx, cancel := context.WithCancel(ctx)
+	pro.addCancel(requestID, cancel)
+	defer pro.delCancel(requestID)
 	defer cancel()
 	req, err := DecodeRequest(payload)
 	if err != nil {
@@ -146,26 +165,32 @@ func (s *Server) sendErr(pro *process, code int32, message string, requestID uin
 	return WriteFrame(pro.conn, requestID, frameType, resp)
 }
 
-func (s *Server) Listen(addr string) {
+func (s *Server) Listen(ctx context.Context, addr string) error {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
+	defer lis.Close()
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
-			log.Println(err)
-			continue
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				log.Println(err)
+				continue
+			}
 		}
-		go func() {
-			err := s.handler(context.Background(), &process{
-				conn: conn,
+		go func(conn net.Conn) {
+			err := s.handler(ctx, &process{
+				conn:     conn,
+				requests: make(map[uint64]context.CancelFunc),
 			})
 			if err != nil && err != io.EOF {
 				log.Println(err)
 			}
-		}()
+		}(conn)
 	}
 }
 
@@ -187,4 +212,21 @@ func (stream *StreamServer) close() error {
 	defer stream.pro.writeMu.Unlock()
 
 	return WriteFrame(stream.pro.conn, stream.requestID, FrameStreamEnd, nil)
+}
+
+func (p *process) addCancel(requestID uint64, cancel context.CancelFunc) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.requests[requestID] = cancel
+}
+func (p *process) delCancel(requestID uint64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.requests, requestID)
+}
+func (p *process) getCancel(requestID uint64) (context.CancelFunc, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	cancel, ok := p.requests[requestID]
+	return cancel, ok
 }

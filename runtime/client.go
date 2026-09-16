@@ -28,6 +28,7 @@ type ClientStream struct {
 	requestID uint64
 	client    *Client
 	recvCh    chan streamResult
+	ctx       context.Context
 }
 
 type streamResult struct {
@@ -133,9 +134,7 @@ func (c *Client) CallUnary(ctx context.Context, service, method string, req any,
 		return err
 	}
 
-	c.writeMu.Lock()
-	err = WriteFrame(c.conn, requestID, FrameUnaryRequest, mrpcRequest)
-	c.writeMu.Unlock()
+	c.sendRequest(requestID, FrameUnaryRequest, mrpcRequest)
 	if err != nil {
 		return err
 	}
@@ -158,6 +157,7 @@ func (c *Client) CallUnary(ctx context.Context, service, method string, req any,
 		}
 	case <-ctx.Done():
 		c.delUnaryPending(requestID)
+		c.sendRequest(requestID, FrameCancel, nil)
 		return ctx.Err()
 	}
 
@@ -244,26 +244,31 @@ func (c *Client) handleStreamEnd(requestID uint64, payload []byte) {
 }
 
 func (s *ClientStream) Recv(resp any) error {
-	streamResult := <-s.recvCh
-	if streamResult.err != nil {
-		return streamResult.err
-	}
-
-	mrpcResp := streamResult.response
-	if mrpcResp.Code != CodeOK {
-		return fmt.Errorf("rpc error: code=%d message=%s", mrpcResp.Code, mrpcResp.Message)
-	}
-
-	if resp != nil {
-		err := json.Unmarshal(mrpcResp.Response, resp)
-		if err != nil {
-			return err
+	select {
+	case streamResult := <-s.recvCh:
+		if streamResult.err != nil {
+			return streamResult.err
 		}
+
+		mrpcResp := streamResult.response
+		if mrpcResp.Code != CodeOK {
+			return fmt.Errorf("rpc error: code=%d message=%s", mrpcResp.Code, mrpcResp.Message)
+		}
+
+		if resp != nil {
+			err := json.Unmarshal(mrpcResp.Response, resp)
+			if err != nil {
+				return err
+			}
+		}
+	case <-s.ctx.Done():
+		s.client.sendRequest(s.requestID, FrameCancel, nil)
+		return s.ctx.Err()
 	}
 	return nil
 }
 
-func (c *Client) NewClientStream(service string, method string, req any) (*ClientStream, error) {
+func (c *Client) NewClientStream(ctx context.Context, service string, method string, req any) (*ClientStream, error) {
 
 	mrpcRequest, err := EncodeRequest(service, method, req)
 	if err != nil {
@@ -276,15 +281,21 @@ func (c *Client) NewClientStream(service string, method string, req any) (*Clien
 		requestID: requestID,
 		client:    c,
 		recvCh:    ch,
+		ctx:       ctx,
 	}
 	c.addStreamPending(requestID, stream)
 
-	c.writeMu.Lock()
-	err = WriteFrame(c.conn, requestID, FrameStreamOpen, mrpcRequest)
-	c.writeMu.Unlock()
+	err = c.sendRequest(requestID, FrameStreamOpen, mrpcRequest)
 	if err != nil {
 		return nil, err
 	}
 
 	return stream, nil
+}
+
+func (c *Client) sendRequest(requestID uint64, framType FrameType, request []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	err := WriteFrame(c.conn, requestID, framType, request)
+	return err
 }

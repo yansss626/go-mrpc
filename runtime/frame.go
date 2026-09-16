@@ -21,6 +21,8 @@ const (
 	FrameStreamOpen FrameType = 3
 	FrameStreamData FrameType = 4
 	FrameStreamEnd  FrameType = 5
+
+	FrameCancel FrameType = 6
 )
 
 type Header struct {

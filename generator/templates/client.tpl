@@ -25,7 +25,7 @@ func New{{$serviceName}}Client (client *mrpc.Client) (*{{$serviceName}}Client) {
 	}
 
 	func (c *{{$serviceName}}Client) {{$methodName}}(ctx context.Context, req *{{$method.Request}}) (*{{$serviceName}}{{$methodName}}Client, error) {
-		stream, err := c.client.NewClientStream("{{$serviceName}}", "{{$methodName}}", req)
+		stream, err := c.client.NewClientStream(ctx, "{{$serviceName}}", "{{$methodName}}", req)
 		if err != nil {
 			return nil, err
 		}	
