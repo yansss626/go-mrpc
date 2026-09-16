@@ -11,13 +11,12 @@ type IDL struct {
 type Message struct {
 	Fields []Field `yaml:"fields"`
 }
-
 type Field struct {
-	Name string `yaml:"name"`
-
-	Type string `yaml:"type"`
+	Name     string `yaml:"name"`
+	Type     string `yaml:"type"`
+	Repeated bool   `yaml:"repeated"`
+	JsonName string `yaml:"json_name"`
 }
-
 type Service struct {
 	Methods map[string]Method `yaml:"methods"`
 }

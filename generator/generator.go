@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
-	"unicode"
 )
 
 const (
@@ -70,7 +69,10 @@ func GenerateMessage(idl *IDL, out string) error {
 	for name, message := range idl.Messages {
 		fmt.Fprintf(file, "type %s struct {\n", name)
 		for _, field := range message.Fields {
-			fmt.Fprintf(file, "\t%s %s `json:\"%s\"`\n", ToGoName(field.Name), field.Type, field.Name)
+			fieldName := FieldGoName(field.Name)
+			fieldType := FieldGoType(field)
+			jsonName := FieldJSONName(field)
+			fmt.Fprintf(file, "\t%s %s `json:\"%s\"`\n", fieldName, fieldType, jsonName)
 		}
 		fmt.Fprintf(file, "}\n\n")
 	}
@@ -144,17 +146,4 @@ func GenerateServer(idl *IDL, out string) error {
 	}
 
 	return os.WriteFile(filename, formattedCode, 0644)
-}
-func ToGoName(name string) string {
-
-	if len(name) == 0 {
-		return name
-	}
-
-	runes := []rune(name)
-
-	runes[0] = unicode.ToUpper(runes[0])
-
-	return string(runes)
-
 }
