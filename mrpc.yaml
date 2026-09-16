@@ -1,0 +1,19 @@
+package: sum
+messages:
+  SumStreamRequest:
+    fields:
+      - name: a
+        type: int
+      - name: b
+        type: int
+  SumStreamResponse:
+    fields:
+      - name: result
+        type: int
+services:
+  SumService:
+    methods:
+      SumStream:
+        request: SumStreamRequest
+        response: SumStreamResponse
+        server_stream: true
