@@ -7,11 +7,13 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 )
 
 // unary
 type Client struct {
 	conn          net.Conn
+	closed        atomic.Bool
 	requestID     uint64
 	unaryPending  map[uint64]chan unaryResult
 	streamPending map[uint64]*ClientStream
@@ -63,6 +65,7 @@ func (c *Client) readLoop() {
 		header, payload, err := ReadFrame(c.conn)
 		if err != nil {
 			c.failAll(err)
+			c.closed.Store(true)
 			return
 		}
 		switch header.FrameType {
@@ -75,6 +78,7 @@ func (c *Client) readLoop() {
 			c.handleStreamEnd(header.RequestID, payload)
 		default:
 			c.failAll(fmt.Errorf("invalid frame type: %d", header.FrameType))
+			c.closed.Store(true)
 			return
 		}
 
@@ -185,6 +189,7 @@ func (c *Client) Close() error {
 	if c.conn == nil {
 		return nil
 	}
+	c.closed.Store(true)
 	return c.conn.Close()
 }
 
