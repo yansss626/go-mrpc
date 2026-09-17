@@ -2,7 +2,7 @@ package {{.Package}}
 
 import (
 	"context"
-	mrpc "mrpc/runtime"
+	mrpc "github.com/yansss/mrpc/runtime"
 )
 
 {{range $serviceName, $service := .Services}}

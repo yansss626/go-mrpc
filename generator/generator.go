@@ -5,15 +5,12 @@ import (
 	"embed"
 	"fmt"
 	"go/format"
-	"html/template"
 	"os"
 	"path/filepath"
+	"text/template"
 )
 
-const (
-	GeneratedPath = "./generated/"
-)
-
+//go:embed templates/*.tpl
 var templateFS embed.FS
 
 func Generate(idl *IDL, out string) error {

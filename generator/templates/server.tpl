@@ -6,7 +6,7 @@ import (
 
 	"encoding/json"
 
-	mrpc "mrpc/runtime"
+	mrpc "github.com/yansss/mrpc/runtime"
 )
 
 {{range $serviceName,$service := .Services}}
