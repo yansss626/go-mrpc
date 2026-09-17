@@ -24,13 +24,13 @@ func FieldGoType(field Field) string {
 		t = "float64"
 	}
 
+	if field.Optional {
+		t = "*" + t
+	}
+
 	if field.Repeated {
 
 		t = "[]" + t
-	}
-
-	if field.Optional {
-		t = "*" + t
 	}
 
 	return t
