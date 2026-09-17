@@ -27,7 +27,10 @@ func FieldGoType(field Field) string {
 	if field.Repeated {
 
 		t = "[]" + t
+	}
 
+	if field.Optional {
+		t = "*" + t
 	}
 
 	return t

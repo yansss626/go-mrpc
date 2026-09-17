@@ -72,7 +72,7 @@ func GenerateMessage(idl *IDL, out string) error {
 			fieldName := FieldGoName(field.Name)
 			fieldType := FieldGoType(field)
 			jsonName := FieldJSONName(field)
-			fmt.Fprintf(file, "\t%s %s `json:\"%s\"`\n", fieldName, fieldType, jsonName)
+			fmt.Fprintf(file, "\t%s %s `json:\"%s,omitempty\"`\n", fieldName, fieldType, jsonName)
 		}
 		fmt.Fprintf(file, "}\n\n")
 	}

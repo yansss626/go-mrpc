@@ -15,6 +15,7 @@ type Field struct {
 	Name     string `yaml:"name"`
 	Type     string `yaml:"type"`
 	Repeated bool   `yaml:"repeated"`
+	Optional bool   `yanml:"optional"`
 	JsonName string `yaml:"json_name"`
 }
 type Service struct {
