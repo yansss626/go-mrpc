@@ -13,9 +13,9 @@ const (
 	GeneratedPath = "./generated/"
 )
 
-func Generate(idl *IDL) error {
+func Generate(idl *IDL, out string) error {
 
-	path := GeneratedPath + idl.Package
+	path := filepath.Join(out, idl.Package)
 
 	err := os.MkdirAll(path, 0755)
 	if err != nil {

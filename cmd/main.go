@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"log"
-	"mrpc/generator"
+
+	"github.com/yansss/mrpc/generator"
 )
 
 var (
-	filePath = flag.String("config", "mrpc.yaml", "")
+	filePath      = flag.String("config", "mrpc.yaml", "")
+	generatedPath = flag.String("out", "./generated", "")
 )
 
 func main() {
@@ -17,7 +19,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = generator.Generate(idl)
+	err = generator.Generate(idl, *generatedPath)
 	if err != nil {
 		log.Fatal(err)
 	}
