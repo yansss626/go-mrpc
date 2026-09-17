@@ -1,16 +1,18 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"mrpc/generator"
 )
 
-const (
-	Filepath = "./mrpc.yaml"
+var (
+	filePath = flag.String("config", "mrpc.yaml", "")
 )
 
 func main() {
-	idl, err := generator.Parse(Filepath)
+	flag.Parse()
+	idl, err := generator.Parse(*filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
