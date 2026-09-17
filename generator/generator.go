@@ -2,6 +2,7 @@ package generator
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"go/format"
 	"html/template"
@@ -12,6 +13,8 @@ import (
 const (
 	GeneratedPath = "./generated/"
 )
+
+var templateFS embed.FS
 
 func Generate(idl *IDL, out string) error {
 
@@ -113,9 +116,14 @@ func (c *ReverseServiceClient) Reverse(ctx context.Context, req *ReverseRequest)
 func GenerateClient(idl *IDL, out string) error {
 
 	filename := filepath.Join(out, idl.Package+"_client.go")
-	tpl := template.Must(template.ParseFiles("./generator/templates/client.tpl"))
+	data, err := templateFS.ReadFile("templates/client.tpl")
+	if err != nil {
+		return err
+	}
+	tpl, err := template.New("client").Parse(string(data))
+
 	var buf bytes.Buffer
-	err := tpl.Execute(&buf, idl)
+	err = tpl.Execute(&buf, idl)
 	if err != nil {
 		return err
 	}
@@ -132,9 +140,13 @@ func GenerateClient(idl *IDL, out string) error {
 func GenerateServer(idl *IDL, out string) error {
 
 	filename := filepath.Join(out, idl.Package+"_server.go")
-	tpl := template.Must(template.ParseFiles("./generator/templates/server.tpl"))
+	data, err := templateFS.ReadFile("templates/server.tpl")
+	if err != nil {
+		return err
+	}
+	tpl, err := template.New("server").Parse(string(data))
 	var buf bytes.Buffer
-	err := tpl.Execute(&buf, idl)
+	err = tpl.Execute(&buf, idl)
 	if err != nil {
 		return err
 	}
