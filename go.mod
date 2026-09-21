@@ -1,4 +1,4 @@
-module github.com/yansss/mrpc
+module github.com/yansss626/mrpc
 
 go 1.25.0
 

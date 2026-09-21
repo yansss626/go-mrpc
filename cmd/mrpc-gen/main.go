@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/yansss/mrpc/generator"
+	"github.com/yansss626/mrpc/generator"
 )
 
 var (
